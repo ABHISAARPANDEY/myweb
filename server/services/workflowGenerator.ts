@@ -1,15 +1,26 @@
 import { generateWorkflowFromPrompt } from './openai';
+import { generateWorkflowFromPrompt as generateLocalWorkflow } from './localWorkflowGenerator';
 import { storage } from '../storage';
 import type { GenerateWorkflowRequest, WorkflowResponse } from '@shared/schema';
 
 export async function generateWorkflow(request: GenerateWorkflowRequest): Promise<WorkflowResponse> {
   try {
-    // Generate workflow using OpenAI
-    const generatedWorkflow = await generateWorkflowFromPrompt(
-      request.prompt,
-      request.includeAuth,
-      request.includeErrorHandling
-    );
+    let generatedWorkflow;
+    
+    // Check if we have API keys available
+    const hasApiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+    
+    if (hasApiKey) {
+      // Generate workflow using AI
+      generatedWorkflow = await generateWorkflowFromPrompt(
+        request.prompt,
+        request.includeAuth,
+        request.includeErrorHandling
+      );
+    } else {
+      // Generate workflow using local templates
+      generatedWorkflow = generateLocalWorkflow(request.prompt);
+    }
 
     // Store the workflow in our database
     const storedWorkflow = await storage.createWorkflow({

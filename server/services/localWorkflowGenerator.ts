@@ -296,25 +296,25 @@ export function generateWorkflowFromPrompt(prompt: string): any {
                   value: '={{JSON.stringify($json)}}'
                 }
               ]
-            }
+            },
+            options: {}
           },
-          options: {}
-        },
-        id: uuidv4(),
-        name: 'Process Data',
-        type: 'n8n-nodes-base.set',
-        position: [460, 300],
-        typeVersion: 1
-      }
-    ],
-    connections: {},
-    setupInstructions: [
-      'Copy the webhook URL and configure your source application',
-      'Customize the data processing in the Process Data node',
-      'Add additional nodes as needed for your specific use case',
-      'Test with sample data to ensure proper processing'
-    ]
-  };
+          id: uuidv4(),
+          name: 'Process Data',
+          type: 'n8n-nodes-base.set',
+          position: [460, 300],
+          typeVersion: 1
+        }
+      ],
+      connections: {},
+      setupInstructions: [
+        'Copy the webhook URL and configure your source application',
+        'Customize the data processing in the Process Data node',
+        'Add additional nodes as needed for your specific use case',
+        'Test with sample data to ensure proper processing'
+      ]
+    };
+  }
   
   // Generate connections based on nodes
   const connections: any = {};

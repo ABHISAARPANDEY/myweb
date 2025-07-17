@@ -2,7 +2,8 @@ import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "your-api-key-here" 
+  apiKey: process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY || "your-api-key-here",
+  baseURL: process.env.OPENROUTER_API_KEY ? "https://openrouter.ai/api/v1" : undefined
 });
 
 export async function generateWorkflowFromPrompt(
@@ -55,7 +56,7 @@ ${includeErrorHandling ? "Add error handling nodes and try/catch logic." : ""}
 Generate a complete, functional n8n workflow based on the user's description.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: process.env.OPENROUTER_API_KEY ? "openai/gpt-4o" : "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
