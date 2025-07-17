@@ -63,7 +63,7 @@ Generate a complete, functional n8n workflow based on the user's description.`;
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 2000,
     });
 
     const result = JSON.parse(response.choices[0].message.content!);

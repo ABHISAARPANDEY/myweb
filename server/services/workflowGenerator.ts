@@ -11,12 +11,18 @@ export async function generateWorkflow(request: GenerateWorkflowRequest): Promis
     const hasApiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
     
     if (hasApiKey) {
-      // Generate workflow using AI
-      generatedWorkflow = await generateWorkflowFromPrompt(
-        request.prompt,
-        request.includeAuth,
-        request.includeErrorHandling
-      );
+      try {
+        // Generate workflow using AI
+        generatedWorkflow = await generateWorkflowFromPrompt(
+          request.prompt,
+          request.includeAuth,
+          request.includeErrorHandling
+        );
+      } catch (error: any) {
+        console.log("AI generation failed, falling back to local templates:", error.message);
+        // Fallback to local templates if AI fails
+        generatedWorkflow = generateLocalWorkflow(request.prompt);
+      }
     } else {
       // Generate workflow using local templates
       generatedWorkflow = generateLocalWorkflow(request.prompt);

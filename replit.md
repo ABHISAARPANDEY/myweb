@@ -104,10 +104,18 @@ Preferred communication style: Simple, everyday language.
 - **ESBuild**: Fast JavaScript bundler for production
 
 ### AI Integration
-- **Model**: OpenAI GPT-4o (latest available model)
-- **API Key**: Environment variable configuration
-- **Prompt Engineering**: Specialized prompts for n8n workflow generation
+- **Primary Model**: OpenRouter API with GPT-4o access (cost-efficient)
+- **Fallback Model**: OpenAI GPT-4o (direct API)
+- **Local Templates**: 8+ comprehensive workflow templates for instant generation
+- **Smart Fallback**: Automatic fallback to templates when API limits reached
+- **Prompt Engineering**: Optimized prompts for n8n workflow generation (2000 tokens)
 - **Response Validation**: Zod schemas for API response validation
+
+### Recent Updates (July 17, 2025)
+- **Enhanced Template System**: Added specialized templates for CRM, e-commerce, monitoring, social media
+- **Intelligent Matching**: Weighted keyword scoring for better template selection
+- **Dynamic Generation**: Smart prompt analysis for custom workflow creation
+- **Cost Optimization**: Reduced token usage and implemented fallback strategies
 
 ## Deployment Strategy
 
