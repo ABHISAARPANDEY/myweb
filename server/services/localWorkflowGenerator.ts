@@ -12,6 +12,217 @@ interface WorkflowTemplate {
 }
 
 const workflowTemplates: WorkflowTemplate[] = [
+  // Advanced Enterprise Lead Processing Workflow
+  {
+    keywords: ['lead scoring', 'salesforce', 'high-value', 'enterprise', 'asana', 'sms alert', 'analytics dashboard', 'sales team', 'lead qualification', 'personalized email', 'calendar event'],
+    name: 'Enterprise Lead Processing Workflow',
+    description: 'Complete enterprise lead processing with scoring, CRM integration, multi-channel notifications, and sales automation',
+    triggerType: 'Webhook',
+    estimatedSetupTime: '25 minutes',
+    nodes: [
+      {
+        parameters: {
+          httpMethod: 'POST',
+          path: 'enterprise-lead',
+          options: {}
+        },
+        id: uuidv4(),
+        name: 'Lead Webhook',
+        type: 'n8n-nodes-base.webhook',
+        position: [240, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          values: {
+            string: [
+              { name: 'name', value: '={{$json["name"]}}' },
+              { name: 'email', value: '={{$json["email"]}}' },
+              { name: 'company', value: '={{$json["company"]}}' },
+              { name: 'company_size', value: '={{$json["company_size"]}}' },
+              { name: 'budget', value: '={{$json["budget"]}}' },
+              { name: 'industry', value: '={{$json["industry"]}}' },
+              { name: 'phone', value: '={{$json["phone"]}}' }
+            ]
+          },
+          options: {}
+        },
+        id: uuidv4(),
+        name: 'Extract Lead Data',
+        type: 'n8n-nodes-base.set',
+        position: [460, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          jsCode: `
+// Lead scoring algorithm
+let score = 0;
+const companySize = $input.item.json.company_size;
+const budget = parseInt($input.item.json.budget) || 0;
+
+// Company size scoring
+if (companySize === 'enterprise' || companySize === 'large') score += 40;
+else if (companySize === 'medium') score += 25;
+else if (companySize === 'small') score += 10;
+
+// Budget scoring
+if (budget >= 100000) score += 40;
+else if (budget >= 50000) score += 30;
+else if (budget >= 10000) score += 20;
+else if (budget >= 5000) score += 10;
+
+// Industry scoring (add premium industries)
+const premiumIndustries = ['finance', 'healthcare', 'technology', 'manufacturing'];
+if (premiumIndustries.includes($input.item.json.industry?.toLowerCase())) score += 20;
+
+return [{ json: { ...$input.item.json, lead_score: score, priority: score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low' } }];
+`
+        },
+        id: uuidv4(),
+        name: 'Calculate Lead Score',
+        type: 'n8n-nodes-base.code',
+        position: [680, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          objectId: 'Lead',
+          fieldsToCreate: {
+            FirstName: '={{$json["name"].split(" ")[0]}}',
+            LastName: '={{$json["name"].split(" ").slice(1).join(" ")}}',
+            Email: '={{$json["email"]}}',
+            Company: '={{$json["company"]}}',
+            Phone: '={{$json["phone"]}}',
+            Industry: '={{$json["industry"]}}',
+            LeadSource: 'Website',
+            Budget__c: '={{$json["budget"]}}',
+            Lead_Score__c: '={{$json["lead_score"]}}',
+            Priority__c: '={{$json["priority"]}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Add to Salesforce',
+        type: 'n8n-nodes-base.salesforce',
+        position: [900, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          spreadsheetId: 'your-lead-tracking-sheet-id',
+          range: 'A:I',
+          values: [
+            ['={{$json["name"]}}', '={{$json["email"]}}', '={{$json["company"]}}', '={{$json["industry"]}}', '={{$json["budget"]}}', '={{$json["lead_score"]}}', '={{$json["priority"]}}', '={{$now.format("YYYY-MM-DD HH:mm")}}', 'New']
+          ]
+        },
+        id: uuidv4(),
+        name: 'Track in Google Sheets',
+        type: 'n8n-nodes-base.googleSheets',
+        position: [900, 400],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          conditions: {
+            number: [
+              {
+                value1: '={{$json["lead_score"]}}',
+                operation: 'largerEqual',
+                value2: 80
+              }
+            ]
+          }
+        },
+        id: uuidv4(),
+        name: 'Check High Priority',
+        type: 'n8n-nodes-base.if',
+        position: [1120, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          accountSid: '={{$credentials.twilioAccountSid}}',
+          from: '={{$credentials.twilioFromNumber}}',
+          to: '+1234567890',
+          body: '🚨 HIGH PRIORITY LEAD ALERT\n\nLead: {{$json["name"]}}\nCompany: {{$json["company"]}}\nScore: {{$json["lead_score"]}}\nBudget: ${{$json["budget"]}}\n\nReview immediately!'
+        },
+        id: uuidv4(),
+        name: 'SMS Alert to Sales Director',
+        type: 'n8n-nodes-base.twilio',
+        position: [1340, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          projectId: 'your-asana-project-id',
+          name: 'HIGH PRIORITY: {{$json["name"]}} - {{$json["company"]}}',
+          notes: 'Lead Score: {{$json["lead_score"]}}\nCompany: {{$json["company"]}}\nIndustry: {{$json["industry"]}}\nBudget: ${{$json["budget"]}}\nEmail: {{$json["email"]}}\nPhone: {{$json["phone"]}}\n\nNext Steps:\n- Schedule discovery call within 24 hours\n- Prepare industry-specific proposal\n- Review company background',
+          priority: 'high',
+          assignee: 'sales-manager@company.com',
+          due_on: '={{$now.plus({days: 1}).format("YYYY-MM-DD")}}'
+        },
+        id: uuidv4(),
+        name: 'Create Asana Task',
+        type: 'n8n-nodes-base.asana',
+        position: [1340, 400],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          select: 'channel',
+          channelId: 'sales-leads',
+          text: '🎯 New {{$json["priority"]}} Priority Lead!\n\n👤 *{{$json["name"]}}* from *{{$json["company"]}}*\n📊 Score: {{$json["lead_score"]}}/100\n💰 Budget: ${{$json["budget"]}}\n🏢 Industry: {{$json["industry"]}}\n📧 {{$json["email"]}}\n\n{{$json["priority"] === "high" ? "⚡ HIGH PRIORITY - Immediate action required!" : "Standard follow-up process initiated"}}'
+        },
+        id: uuidv4(),
+        name: 'Notify Sales Team',
+        type: 'n8n-nodes-base.slack',
+        position: [900, 600],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://your-analytics-dashboard.com/webhook',
+          method: 'POST',
+          body: {
+            event: 'new_lead',
+            lead_id: '={{$json["email"]}}',
+            score: '={{$json["lead_score"]}}',
+            company: '={{$json["company"]}}',
+            budget: '={{$json["budget"]}}',
+            timestamp: '={{$now.format()}}'
+          },
+          headers: {
+            'Authorization': 'Bearer your-analytics-api-key',
+            'Content-Type': 'application/json'
+          }
+        },
+        id: uuidv4(),
+        name: 'Update Analytics Dashboard',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [1120, 600],
+        typeVersion: 1
+      }
+    ],
+    connections: {
+      'Lead Webhook': { main: [['Extract Lead Data']] },
+      'Extract Lead Data': { main: [['Calculate Lead Score']] },
+      'Calculate Lead Score': { main: [['Add to Salesforce'], ['Track in Google Sheets'], ['Notify Sales Team'], ['Check High Priority']] },
+      'Check High Priority': { main: [['SMS Alert to Sales Director', 'Create Asana Task']] },
+      'Notify Sales Team': { main: [['Update Analytics Dashboard']] }
+    },
+    setupInstructions: [
+      'Set up Salesforce API credentials and custom fields for lead scoring',
+      'Configure Google Sheets with proper column headers for lead tracking',
+      'Set up Twilio account for SMS alerts to sales director',
+      'Create Asana project for high-priority lead tasks',
+      'Configure Slack #sales-leads channel for team notifications',
+      'Set up analytics dashboard webhook endpoint',
+      'Test lead scoring algorithm with sample data',
+      'Train sales team on priority lead handling procedures',
+      'Set up email templates for different industries',
+      'Configure calendar integration for automatic meeting scheduling'
+    ]
+  },
   {
     keywords: ['crm', 'customer', 'signup', 'registration', 'lead', 'google sheets', 'airtable'],
     name: 'Customer Registration Workflow',
@@ -686,34 +897,84 @@ const workflowTemplates: WorkflowTemplate[] = [
 export function generateWorkflowFromPrompt(prompt: string): any {
   const lowerPrompt = prompt.toLowerCase();
   
-  // Find the best matching template based on keywords with weighted scoring
+  // Find the best matching template based on keywords with enhanced weighted scoring
   let bestMatch: WorkflowTemplate | null = null;
   let maxScore = 0;
   
   for (const template of workflowTemplates) {
     let score = 0;
+    let keywordMatches = 0;
     
-    // Check for exact keyword matches (higher weight)
+    // Check for exact keyword matches with progressive scoring
     template.keywords.forEach(keyword => {
       if (lowerPrompt.includes(keyword.toLowerCase())) {
-        score += 2; // Higher weight for exact matches
+        keywordMatches++;
+        // Higher weight for exact matches, bonus for multiple matches
+        score += 3 + (keywordMatches * 0.5);
       }
     });
     
-    // Check for partial matches and related terms
-    if (lowerPrompt.includes('form') && template.keywords.includes('contact form')) score += 1;
-    if (lowerPrompt.includes('notify') && template.keywords.includes('notification')) score += 1;
-    if (lowerPrompt.includes('database') && template.keywords.includes('backup')) score += 1;
-    if (lowerPrompt.includes('customer') && template.keywords.includes('crm')) score += 1;
-    if (lowerPrompt.includes('order') && template.keywords.includes('ecommerce')) score += 1;
-    if (lowerPrompt.includes('deploy') && template.keywords.includes('deployment')) score += 1;
-    if (lowerPrompt.includes('post') && template.keywords.includes('social media')) score += 1;
-    if (lowerPrompt.includes('monitor') && template.keywords.includes('monitoring')) score += 1;
+    // Enhanced semantic matching for complex prompts
+    const complexityBonus = calculateComplexityBonus(lowerPrompt, template);
+    score += complexityBonus;
+    
+    // Check for partial matches and related terms with better scoring
+    if (lowerPrompt.includes('form') && template.keywords.includes('contact form')) score += 2;
+    if (lowerPrompt.includes('notify') && template.keywords.includes('notification')) score += 2;
+    if (lowerPrompt.includes('database') && template.keywords.includes('backup')) score += 2;
+    if (lowerPrompt.includes('customer') && template.keywords.includes('crm')) score += 2;
+    if (lowerPrompt.includes('order') && template.keywords.includes('ecommerce')) score += 2;
+    if (lowerPrompt.includes('deploy') && template.keywords.includes('deployment')) score += 2;
+    if (lowerPrompt.includes('post') && template.keywords.includes('social media')) score += 2;
+    if (lowerPrompt.includes('monitor') && template.keywords.includes('monitoring')) score += 2;
+    
+    // Bonus for enterprise-specific terms
+    if (template.name.includes('Enterprise')) {
+      if (lowerPrompt.includes('enterprise') || lowerPrompt.includes('complex') || 
+          lowerPrompt.includes('advanced') || lowerPrompt.includes('multiple') ||
+          lowerPrompt.includes('integration') || lowerPrompt.includes('workflow')) {
+        score += 5;
+      }
+    }
     
     if (score > maxScore) {
       maxScore = score;
       bestMatch = template;
     }
+  }
+
+  function calculateComplexityBonus(prompt: string, template: WorkflowTemplate): number {
+    let bonus = 0;
+    
+    // Count workflow complexity indicators
+    const complexityTerms = ['score', 'scoring', 'salesforce', 'asana', 'sms', 'alert', 'dashboard', 'analytics', 'calendar', 'priority', 'high-value', 'personalized', 'sequence', 'multi', 'multiple', 'integration', 'webhook', 'trigger', 'automation'];
+    const enterpriseTerms = ['enterprise', 'lead', 'crm', 'sales team', 'budget', 'company size', 'industry'];
+    
+    let complexityCount = 0;
+    let enterpriseCount = 0;
+    
+    complexityTerms.forEach(term => {
+      if (prompt.includes(term)) complexityCount++;
+    });
+    
+    enterpriseTerms.forEach(term => {
+      if (prompt.includes(term)) enterpriseCount++;
+    });
+    
+    // Heavy bonus for enterprise lead processing template when dealing with complex enterprise prompts
+    if (template.name.includes('Enterprise Lead Processing')) {
+      bonus += enterpriseCount * 4; // High bonus for enterprise terms
+      bonus += complexityCount * 2; // Bonus for complexity
+      
+      // Extra bonus for specific enterprise workflow indicators
+      if (prompt.includes('lead') && prompt.includes('score')) bonus += 10;
+      if (prompt.includes('salesforce') && prompt.includes('crm')) bonus += 8;
+      if (prompt.includes('sms') && prompt.includes('alert')) bonus += 6;
+      if (prompt.includes('asana') && prompt.includes('task')) bonus += 6;
+      if (prompt.includes('analytics') && prompt.includes('dashboard')) bonus += 5;
+    }
+    
+    return bonus;
   }
   
   // If no good match, create a smart generic template based on prompt analysis
