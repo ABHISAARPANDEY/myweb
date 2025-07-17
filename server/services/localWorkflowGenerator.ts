@@ -12,11 +12,11 @@ interface WorkflowTemplate {
 }
 
 const workflowTemplates: WorkflowTemplate[] = [
-  // Advanced Enterprise Lead Processing Workflow
+  // Advanced Enterprise Lead Processing Workflow  
   {
-    keywords: ['lead scoring', 'salesforce', 'high-value', 'enterprise', 'asana', 'sms alert', 'analytics dashboard', 'sales team', 'lead qualification', 'personalized email', 'calendar event'],
+    keywords: ['lead scoring', 'salesforce', 'high-value', 'enterprise', 'asana', 'sms alert', 'analytics dashboard', 'sales team', 'lead qualification', 'personalized email', 'calendar event', 'crm integration', 'sales automation', 'lead management'],
     name: 'Enterprise Lead Processing Workflow',
-    description: 'Complete enterprise lead processing with scoring, CRM integration, multi-channel notifications, and sales automation',
+    description: 'Complete enterprise lead processing with AI scoring, CRM integration, multi-channel notifications, and automated sales workflows',
     triggerType: 'Webhook',
     estimatedSetupTime: '25 minutes',
     nodes: [
@@ -221,6 +221,740 @@ return [{ json: { ...$input.item.json, lead_score: score, priority: score >= 80 
       'Train sales team on priority lead handling procedures',
       'Set up email templates for different industries',
       'Configure calendar integration for automatic meeting scheduling'
+    ]
+  },
+  // Advanced E-commerce Order Processing
+  {
+    keywords: ['order processing', 'ecommerce', 'shopify', 'inventory', 'payment', 'fulfillment', 'shipping', 'confirmation email', 'analytics', 'customer notification', 'order management', 'payment validation', 'fraud detection'],
+    name: 'Advanced E-commerce Order Processing',
+    description: 'Complete order processing pipeline with payment validation, inventory management, fulfillment automation, and customer communications',
+    triggerType: 'Webhook',
+    estimatedSetupTime: '20 minutes',
+    nodes: [
+      {
+        parameters: {
+          httpMethod: 'POST',
+          path: 'ecommerce-order',
+          options: {}
+        },
+        id: uuidv4(),
+        name: 'Order Webhook',
+        type: 'n8n-nodes-base.webhook',
+        position: [240, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          jsCode: `
+// Order validation and fraud detection
+const order = $input.item.json;
+let riskScore = 0;
+
+// Basic fraud checks
+if (order.billing_address?.country !== order.shipping_address?.country) riskScore += 20;
+if (parseFloat(order.total) > 1000) riskScore += 10;
+if (order.payment_method === 'credit_card' && !order.cvv_verified) riskScore += 30;
+
+// Inventory check simulation
+const inventoryStatus = order.items.map(item => ({
+  ...item,
+  in_stock: Math.random() > 0.1, // 90% in stock simulation
+  warehouse: item.quantity > 10 ? 'main' : 'secondary'
+}));
+
+return [{
+  json: {
+    ...order,
+    risk_score: riskScore,
+    fraud_risk: riskScore > 50 ? 'high' : riskScore > 25 ? 'medium' : 'low',
+    inventory_status: inventoryStatus,
+    needs_manual_review: riskScore > 50,
+    estimated_ship_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+  }
+}];
+`
+        },
+        id: uuidv4(),
+        name: 'Validate Order & Check Inventory',
+        type: 'n8n-nodes-base.code',
+        position: [460, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          conditions: {
+            string: [
+              {
+                value1: '={{$json["fraud_risk"]}}',
+                operation: 'notEqual',
+                value2: 'high'
+              }
+            ]
+          }
+        },
+        id: uuidv4(),
+        name: 'Check Fraud Risk',
+        type: 'n8n-nodes-base.if',
+        position: [680, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://api.inventory-system.com/update',
+          method: 'POST',
+          body: {
+            order_id: '={{$json["order_id"]}}',
+            items: '={{$json["inventory_status"]}}',
+            action: 'reserve'
+          },
+          headers: {
+            'Authorization': 'Bearer {{process.env.INVENTORY_API_KEY}}',
+            'Content-Type': 'application/json'
+          }
+        },
+        id: uuidv4(),
+        name: 'Update Inventory',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [900, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          fromEmail: 'orders@store.com',
+          toEmail: '={{$json["customer"]["email"]}}',
+          subject: 'Order Confirmation #{{$json["order_id"]}}',
+          html: 'Thank you for your order! Order #{{$json["order_id"]}} for ${{$json["total"]}} has been confirmed.'
+        },
+        id: uuidv4(),
+        name: 'Send Order Confirmation',
+        type: 'n8n-nodes-base.emailSend',
+        position: [900, 400],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          select: 'channel',
+          channelId: 'fulfillment',
+          text: '🛒 New Order #{{$json["order_id"]}} from {{$json["customer"]["name"]}} - ${{$json["total"]}} - Risk: {{$json["fraud_risk"]}}'
+        },
+        id: uuidv4(),
+        name: 'Notify Fulfillment Team',
+        type: 'n8n-nodes-base.slack',
+        position: [900, 600],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://analytics.yourstore.com/events',
+          method: 'POST',
+          body: {
+            event: 'order_processed',
+            order_id: '={{$json["order_id"]}}',
+            total: '={{$json["total"]}}',
+            customer_id: '={{$json["customer"]["id"]}}',
+            fraud_risk: '={{$json["fraud_risk"]}}',
+            timestamp: '={{$now.format()}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Track Analytics',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [1120, 400],
+        typeVersion: 1
+      }
+    ],
+    connections: {
+      'Order Webhook': { main: [['Validate Order & Check Inventory']] },
+      'Validate Order & Check Inventory': { main: [['Check Fraud Risk']] },
+      'Check Fraud Risk': { main: [['Update Inventory'], ['Send Order Confirmation'], ['Notify Fulfillment Team']] },
+      'Send Order Confirmation': { main: [['Track Analytics']] }
+    },
+    setupInstructions: [
+      'Configure webhook URL in your e-commerce platform (Shopify, WooCommerce, etc.)',
+      'Set up inventory management API credentials',
+      'Configure email service for order confirmations',
+      'Set up Slack workspace for fulfillment notifications',
+      'Configure analytics tracking endpoint',
+      'Set up fraud detection rules and thresholds',
+      'Test with sample orders to verify all integrations',
+      'Set up automated shipping label generation',
+      'Configure customer notification sequences',
+      'Set up return and refund automation workflows'
+    ]
+  },
+  // Multi-Platform Content Distribution
+  {
+    keywords: ['content distribution', 'social media', 'cross-posting', 'blog', 'podcast', 'youtube', 'newsletter', 'seo optimization', 'content marketing', 'multi-platform', 'scheduling', 'analytics'],
+    name: 'Multi-Platform Content Distribution',
+    description: 'Automated content distribution across social media, blogs, newsletters with SEO optimization and performance tracking',
+    triggerType: 'Webhook', 
+    estimatedSetupTime: '30 minutes',
+    nodes: [
+      {
+        parameters: {
+          httpMethod: 'POST',
+          path: 'content-publish',
+          options: {}
+        },
+        id: uuidv4(),
+        name: 'Content Webhook',
+        type: 'n8n-nodes-base.webhook',
+        position: [240, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          jsCode: `
+// AI-powered content optimization
+const content = $input.item.json;
+
+// Generate platform-specific content
+const platforms = {
+  twitter: {
+    text: content.title.length > 240 ? content.title.substring(0, 237) + '...' : content.title,
+    hashtags: content.tags?.slice(0, 3).map(tag => '#' + tag.replace(/\s/g, '')).join(' ') || '',
+    max_length: 280
+  },
+  linkedin: {
+    text: content.description || content.title,
+    tone: 'professional',
+    cta: 'Read more about this topic',
+    hashtags: content.tags?.slice(0, 5).map(tag => '#' + tag.replace(/\s/g, '')).join(' ') || ''
+  },
+  facebook: {
+    text: content.description || content.title,
+    tone: 'engaging',
+    call_to_action: 'Learn More',
+    optimal_time: '2PM EST'
+  },
+  instagram: {
+    text: content.title,
+    hashtags: content.tags?.slice(0, 10).map(tag => '#' + tag.replace(/\s/g, '')).join(' ') || '',
+    story_text: content.title.substring(0, 100)
+  }
+};
+
+// SEO optimization
+const seo = {
+  meta_title: content.title.length > 60 ? content.title.substring(0, 57) + '...' : content.title,
+  meta_description: content.description?.substring(0, 155) || content.title,
+  keywords: content.tags?.join(', ') || '',
+  canonical_url: content.url
+};
+
+return [{
+  json: {
+    ...content,
+    platforms,
+    seo_data: seo,
+    publish_time: new Date().toISOString(),
+    content_type: content.type || 'article'
+  }
+}];
+`
+        },
+        id: uuidv4(),
+        name: 'Optimize Content for Platforms',
+        type: 'n8n-nodes-base.code',
+        position: [460, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          text: '={{$json["platforms"]["twitter"]["text"]}} {{$json["platforms"]["twitter"]["hashtags"]}}',
+          additionalFields: {
+            mediaUrls: '={{$json["featured_image"] ? [$json["featured_image"]] : []}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Post to Twitter',
+        type: 'n8n-nodes-base.twitter',
+        position: [680, 100],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          text: '={{$json["platforms"]["linkedin"]["text"]}}\n\n{{$json["platforms"]["linkedin"]["cta"]}}\n\n{{$json["platforms"]["linkedin"]["hashtags"]}}',
+          additionalFields: {
+            mediaUrl: '={{$json["featured_image"]}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Post to LinkedIn',
+        type: 'n8n-nodes-base.linkedIn',
+        position: [680, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          pageId: 'your-facebook-page',
+          message: '={{$json["platforms"]["facebook"]["text"]}}',
+          additionalFields: {
+            link: '={{$json["url"]}}',
+            mediaUrl: '={{$json["featured_image"]}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Post to Facebook',
+        type: 'n8n-nodes-base.facebook',
+        position: [680, 500],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          listId: 'newsletter-list-id',
+          subject: '={{$json["title"]}}',
+          htmlContent: 'New content: {{$json["title"]}} - {{$json["description"]}} Read more: {{$json["url"]}}'
+        },
+        id: uuidv4(),
+        name: 'Send Newsletter',
+        type: 'n8n-nodes-base.mailgun',
+        position: [900, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://api.analytics.com/content-tracking',
+          method: 'POST',
+          body: {
+            content_id: '={{$json["id"]}}',
+            title: '={{$json["title"]}}',
+            platforms: ['twitter', 'linkedin', 'facebook', 'newsletter'],
+            publish_time: '={{$json["publish_time"]}}',
+            tags: '={{JSON.stringify($json["tags"])}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Track Performance',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [1120, 300],
+        typeVersion: 1
+      }
+    ],
+    connections: {
+      'Content Webhook': { main: [['Optimize Content for Platforms']] },
+      'Optimize Content for Platforms': { main: [['Post to Twitter'], ['Post to LinkedIn'], ['Post to Facebook'], ['Send Newsletter']] },
+      'Send Newsletter': { main: [['Track Performance']] }
+    },
+    setupInstructions: [
+      'Configure social media API credentials for all platforms',
+      'Set up newsletter service (Mailgun, SendGrid, etc.)',
+      'Configure content optimization rules and templates',
+      'Set up analytics tracking for performance monitoring',
+      'Configure scheduling for optimal posting times',
+      'Set up content approval workflows if needed',
+      'Configure SEO optimization rules',
+      'Set up cross-platform hashtag strategies',
+      'Configure automated content archiving',
+      'Set up performance reporting dashboards'
+    ]
+  },
+  // IoT Data Processing & Monitoring
+  {
+    keywords: ['iot', 'sensor', 'temperature', 'monitoring', 'time-series', 'data collection', 'analytics', 'alerts', 'manufacturing', 'industrial', 'dashboard', 'predictive maintenance', 'anomaly detection'],
+    name: 'IoT Data Processing & Analytics Platform',
+    description: 'Enterprise IoT data collection, processing, anomaly detection, and automated maintenance scheduling',
+    triggerType: 'Webhook',
+    estimatedSetupTime: '35 minutes',
+    nodes: [
+      {
+        parameters: {
+          httpMethod: 'POST',
+          path: 'iot-data',
+          options: {}
+        },
+        id: uuidv4(),
+        name: 'IoT Data Webhook',
+        type: 'n8n-nodes-base.webhook',
+        position: [240, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          jsCode: `
+// IoT data processing and anomaly detection
+const data = $input.item.json;
+
+// Process sensor readings
+const processedData = {
+  sensor_id: data.sensor_id,
+  timestamp: new Date().toISOString(),
+  temperature: parseFloat(data.temperature),
+  humidity: parseFloat(data.humidity || 0),
+  pressure: parseFloat(data.pressure || 0),
+  location: data.location || 'unknown',
+  facility: data.facility || 'main'
+};
+
+// Anomaly detection
+const thresholds = {
+  temperature: { min: 18, max: 25, critical: 30 },
+  humidity: { min: 30, max: 70, critical: 80 },
+  pressure: { min: 990, max: 1050, critical: 1060 }
+};
+
+let alerts = [];
+let severity = 'normal';
+
+// Temperature checks
+if (processedData.temperature > thresholds.temperature.critical) {
+  alerts.push({ type: 'temperature', level: 'critical', value: processedData.temperature });
+  severity = 'critical';
+} else if (processedData.temperature > thresholds.temperature.max || processedData.temperature < thresholds.temperature.min) {
+  alerts.push({ type: 'temperature', level: 'warning', value: processedData.temperature });
+  if (severity === 'normal') severity = 'warning';
+}
+
+// Calculate moving average (simulate)
+const movingAverage = processedData.temperature; // In real implementation, use historical data
+
+return [{
+  json: {
+    ...processedData,
+    alerts,
+    severity,
+    moving_average: movingAverage,
+    maintenance_required: severity === 'critical',
+    processed_time: new Date().toISOString()
+  }
+}];
+`
+        },
+        id: uuidv4(),
+        name: 'Process & Analyze Data',
+        type: 'n8n-nodes-base.code',
+        position: [460, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://timeseries-db.company.com/api/data',
+          method: 'POST',
+          body: {
+            sensor_id: '={{$json["sensor_id"]}}',
+            timestamp: '={{$json["timestamp"]}}',
+            metrics: {
+              temperature: '={{$json["temperature"]}}',
+              humidity: '={{$json["humidity"]}}',
+              pressure: '={{$json["pressure"]}}'
+            },
+            location: '={{$json["location"]}}',
+            severity: '={{$json["severity"]}}'
+          },
+          headers: {
+            'Authorization': 'Bearer {{process.env.TIMESERIES_API_KEY}}',
+            'Content-Type': 'application/json'
+          }
+        },
+        id: uuidv4(),
+        name: 'Store in Time-Series DB',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [680, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          conditions: {
+            string: [
+              {
+                value1: '={{$json["severity"]}}',
+                operation: 'notEqual',
+                value2: 'normal'
+              }
+            ]
+          }
+        },
+        id: uuidv4(),
+        name: 'Check Alert Level',
+        type: 'n8n-nodes-base.if',
+        position: [680, 400],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          select: 'channel',
+          channelId: 'iot-alerts',
+          text: '🌡️ IoT Alert - {{$json["severity"]}} level\nSensor: {{$json["sensor_id"]}}\nLocation: {{$json["location"]}}\nTemperature: {{$json["temperature"]}}°C\nTime: {{$json["timestamp"]}}'
+        },
+        id: uuidv4(),
+        name: 'Send Slack Alert',
+        type: 'n8n-nodes-base.slack',
+        position: [900, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          fromEmail: 'iot-system@company.com',
+          toEmail: 'facilities@company.com',
+          subject: 'IoT {{$json["severity"]}} Alert - Sensor {{$json["sensor_id"]}}',
+          text: 'Alert detected on sensor {{$json["sensor_id"]}} at {{$json["location"]}}. Temperature: {{$json["temperature"]}}°C. Please investigate immediately.'
+        },
+        id: uuidv4(),
+        name: 'Send Email Alert',
+        type: 'n8n-nodes-base.emailSend',
+        position: [900, 500],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          conditions: {
+            string: [
+              {
+                value1: '={{$json["maintenance_required"]}}',
+                operation: 'equal',
+                value2: 'true'
+              }
+            ]
+          }
+        },
+        id: uuidv4(),
+        name: 'Check Maintenance Need',
+        type: 'n8n-nodes-base.if',
+        position: [1120, 400],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://maintenance-system.company.com/api/tickets',
+          method: 'POST',
+          body: {
+            title: 'Critical IoT Sensor Maintenance Required',
+            description: 'Sensor {{$json["sensor_id"]}} at {{$json["location"]}} requires immediate maintenance due to critical alert.',
+            priority: 'high',
+            location: '={{$json["location"]}}',
+            sensor_id: '={{$json["sensor_id"]}}',
+            created_by: 'iot-system'
+          }
+        },
+        id: uuidv4(),
+        name: 'Create Maintenance Ticket',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [1340, 400],
+        typeVersion: 1
+      }
+    ],
+    connections: {
+      'IoT Data Webhook': { main: [['Process & Analyze Data']] },
+      'Process & Analyze Data': { main: [['Store in Time-Series DB'], ['Check Alert Level']] },
+      'Check Alert Level': { main: [['Send Slack Alert'], ['Send Email Alert']] },
+      'Send Email Alert': { main: [['Check Maintenance Need']] },
+      'Check Maintenance Need': { main: [['Create Maintenance Ticket']] }
+    },
+    setupInstructions: [
+      'Configure IoT sensors to send data to webhook endpoint',
+      'Set up time-series database (InfluxDB, TimescaleDB) for data storage',
+      'Configure Slack workspace for real-time alerts',
+      'Set up email service for critical notifications',
+      'Configure maintenance management system integration',
+      'Set up alerting thresholds for different sensor types',
+      'Configure dashboard for real-time monitoring',
+      'Set up historical data analysis and reporting',
+      'Configure predictive maintenance algorithms',
+      'Set up automated calibration workflows'
+    ]
+  },
+  // Financial Data Pipeline
+  {
+    keywords: ['financial', 'reporting', 'reconciliation', 'accounting', 'transactions', 'bank', 'payments', 'audit', 'compliance', 'tax', 'revenue', 'expense', 'budget'],
+    name: 'Financial Data Pipeline & Reporting',
+    description: 'Automated financial data processing, reconciliation, compliance reporting, and anomaly detection',
+    triggerType: 'Schedule',
+    estimatedSetupTime: '40 minutes',
+    nodes: [
+      {
+        parameters: {
+          rule: {
+            interval: [
+              {
+                field: 'hours',
+                hoursInterval: 6
+              }
+            ]
+          }
+        },
+        id: uuidv4(),
+        name: 'Schedule Trigger',
+        type: 'n8n-nodes-base.cron',
+        position: [240, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://api.bank.com/accounts/transactions',
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer {{process.env.BANK_API_KEY}}',
+            'Content-Type': 'application/json'
+          },
+          qs: {
+            start_date: '={{$now.minus({days: 1}).format("YYYY-MM-DD")}}',
+            end_date: '={{$now.format("YYYY-MM-DD")}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Fetch Bank Transactions',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [460, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          url: 'https://api.paymentprocessor.com/transactions',
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer {{process.env.PAYMENT_API_KEY}}'
+          },
+          qs: {
+            date: '={{$now.minus({days: 1}).format("YYYY-MM-DD")}}'
+          }
+        },
+        id: uuidv4(),
+        name: 'Fetch Payment Data',
+        type: 'n8n-nodes-base.httpRequest',
+        position: [460, 400],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          jsCode: `
+// Financial data reconciliation and analysis
+const bankData = $input.item.json.bank_transactions || [];
+const paymentData = $input.item.json.payment_transactions || [];
+
+// Reconcile transactions
+let reconciled = [];
+let discrepancies = [];
+let totalRevenue = 0;
+let totalExpenses = 0;
+
+bankData.forEach(bankTx => {
+  const matchingPayment = paymentData.find(p => 
+    Math.abs(parseFloat(p.amount) - parseFloat(bankTx.amount)) < 0.01 &&
+    new Date(p.date).toDateString() === new Date(bankTx.date).toDateString()
+  );
+  
+  if (matchingPayment) {
+    reconciled.push({
+      bank_id: bankTx.id,
+      payment_id: matchingPayment.id,
+      amount: bankTx.amount,
+      date: bankTx.date,
+      status: 'reconciled'
+    });
+  } else {
+    discrepancies.push({
+      transaction_id: bankTx.id,
+      amount: bankTx.amount,
+      date: bankTx.date,
+      type: 'unmatched_bank_transaction'
+    });
+  }
+  
+  if (parseFloat(bankTx.amount) > 0) {
+    totalRevenue += parseFloat(bankTx.amount);
+  } else {
+    totalExpenses += Math.abs(parseFloat(bankTx.amount));
+  }
+});
+
+// Detect anomalies
+const anomalies = [];
+bankData.forEach(tx => {
+  if (Math.abs(parseFloat(tx.amount)) > 10000) {
+    anomalies.push({
+      transaction_id: tx.id,
+      amount: tx.amount,
+      type: 'large_transaction',
+      requires_review: true
+    });
+  }
+});
+
+return [{
+  json: {
+    reconciliation_summary: {
+      total_reconciled: reconciled.length,
+      total_discrepancies: discrepancies.length,
+      total_revenue: totalRevenue,
+      total_expenses: totalExpenses,
+      net_position: totalRevenue - totalExpenses
+    },
+    reconciled_transactions: reconciled,
+    discrepancies,
+    anomalies,
+    report_date: new Date().toISOString()
+  }
+}];
+`
+        },
+        id: uuidv4(),
+        name: 'Reconcile & Analyze',
+        type: 'n8n-nodes-base.code',
+        position: [680, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          conditions: {
+            number: [
+              {
+                value1: '={{$json["discrepancies"].length}}',
+                operation: 'larger',
+                value2: 0
+              }
+            ]
+          }
+        },
+        id: uuidv4(),
+        name: 'Check Discrepancies',
+        type: 'n8n-nodes-base.if',
+        position: [900, 300],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          fromEmail: 'finance-system@company.com',
+          toEmail: 'finance-team@company.com',
+          subject: 'Daily Financial Reconciliation Report',
+          text: 'Reconciliation completed. Reconciled: {{$json["reconciliation_summary"]["total_reconciled"]}} transactions. Discrepancies: {{$json["reconciliation_summary"]["total_discrepancies"]}}. Net Position: ${{$json["reconciliation_summary"]["net_position"]}}'
+        },
+        id: uuidv4(),
+        name: 'Send Finance Report',
+        type: 'n8n-nodes-base.emailSend',
+        position: [1120, 200],
+        typeVersion: 1
+      },
+      {
+        parameters: {
+          fromEmail: 'finance-system@company.com',
+          toEmail: 'audit@company.com',
+          subject: 'URGENT: Financial Discrepancies Detected',
+          text: 'Discrepancies detected in daily reconciliation. Count: {{$json["reconciliation_summary"]["total_discrepancies"]}}. Please review immediately.'
+        },
+        id: uuidv4(),
+        name: 'Alert on Discrepancies',
+        type: 'n8n-nodes-base.emailSend',
+        position: [1120, 400],
+        typeVersion: 1
+      }
+    ],
+    connections: {
+      'Schedule Trigger': { main: [['Fetch Bank Transactions'], ['Fetch Payment Data']] },
+      'Fetch Payment Data': { main: [['Reconcile & Analyze']] },
+      'Reconcile & Analyze': { main: [['Check Discrepancies'], ['Send Finance Report']] },
+      'Check Discrepancies': { main: [['Alert on Discrepancies']] }
+    },
+    setupInstructions: [
+      'Configure bank API integration for transaction data',
+      'Set up payment processor API connections',
+      'Configure reconciliation rules and thresholds',
+      'Set up compliance reporting templates',
+      'Configure audit trail and logging',
+      'Set up automated backup and archiving',
+      'Configure tax reporting automation',
+      'Set up budget variance analysis',
+      'Configure fraud detection algorithms',
+      'Set up regulatory compliance monitoring'
     ]
   },
   {
